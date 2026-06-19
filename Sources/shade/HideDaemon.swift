@@ -48,16 +48,37 @@ final class HideDaemon: NSObject, NSApplicationDelegate {
         log("loaded \(exclusions.count) exclusion(s)")
     }
 
+    private var followUps: [DispatchWorkItem] = []
+
     @objc private func activeAppChanged(_ note: Notification) {
-        guard let active = note.userInfo?[NSWorkspace.applicationUserInfoKey]
-            as? NSRunningApplication else { return }
-        hideOthers(except: active)
+        // Hide immediately for responsiveness, then re-assert a couple of times.
+        //
+        // When an app with several windows is brought forward, the window server
+        // raises its windows a few frames *after* the activation event, briefly
+        // revealing background apps in the gaps — and a hide() issued mid-transition
+        // sometimes doesn't take (the system is busy reordering windows). The
+        // follow-up passes re-hide anything that slipped through once things settle.
+        hideOthersFromFrontmost()
+        reassert(after: [0.08, 0.2, 0.45])
     }
 
-    private func hideOthers(except active: NSRunningApplication) {
+    private func reassert(after delays: [Double]) {
+        followUps.forEach { $0.cancel() }
+        followUps = delays.map { delay in
+            let work = DispatchWorkItem { [weak self] in self?.hideOthersFromFrontmost() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            return work
+        }
+    }
+
+    /// Hides every other regular app, keying off the *current* frontmost app
+    /// (not a possibly-stale notification), so rapid app switches stay correct.
+    private func hideOthersFromFrontmost() {
+        guard let active = NSWorkspace.shared.frontmostApplication else { return }
         for app in NSWorkspace.shared.runningApplications {
             guard app.activationPolicy == .regular else { continue } // skip agents/menu-bar apps
             if app.processIdentifier == active.processIdentifier { continue }
+            if app.isHidden { continue } // already hidden — nothing to do
             if let id = app.bundleIdentifier, exclusions.contains(id) { continue }
             app.hide()
         }

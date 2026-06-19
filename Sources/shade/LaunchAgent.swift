@@ -28,11 +28,12 @@ enum LaunchAgent {
         Launchctl.bootout() // clear any stale instance first
         Launchctl.bootstrap(plist: Constants.launchAgentURL)
 
-        print("Installed.")
-        print("  binary: \(dest.path)")
-        print("  agent:  \(Constants.launchAgentURL.path)")
-        print("  log:    \(Constants.logURL.path)")
-        print("shade is now running and will start automatically at login.")
+        Banner.play()
+        Banner.ok("installed and running — auto-starts at login")
+        Banner.detail("binary", dest.path)
+        Banner.detail("agent ", Constants.launchAgentURL.path)
+        Banner.detail("log   ", Constants.logURL.path)
+        print("")
     }
 
     static func uninstall() throws {

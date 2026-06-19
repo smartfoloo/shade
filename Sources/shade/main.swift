@@ -16,6 +16,7 @@ COMMANDS:
   exclude add <id>     Never hide the app with this bundle id (e.g. com.apple.finder).
   exclude remove <id>  Remove a bundle id from the exclusion list.
   exclude list         Show the current exclusion list.
+  banner               Preview the welcome animation.
   help                 Show this help.
 """
 
@@ -84,6 +85,9 @@ case "exclude":
     default:
         fail("unknown exclude subcommand '\(sub)'")
     }
+
+case "banner":
+    Banner.play()
 
 case "help", "-h", "--help":
     print(usage)
