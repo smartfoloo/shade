@@ -69,11 +69,19 @@ policy, so no Dock icon). It observes
 `NSWorkspace.didActivateApplicationNotification`; on each app switch it calls
 `hide()` on every other regular application that isn't excluded.
 
-Because the window server can raise an app's windows a few frames *after* posting the
-activation event — briefly revealing background apps, especially for apps with several
-windows — shade hides immediately and then re-asserts a few times over the next ~450ms,
-keying off the current frontmost app each time. This eliminates the lag/flicker where
+Because the window server can raise an app's windows over many frames *after* posting the
+activation event — briefly revealing background apps, especially for heavier apps with
+several windows (e.g. a browser like Dia) — shade hides immediately and then runs a short
+"enforcement burst": every 100ms for ~3 seconds it re-hides any app that slipped through,
+keying off the current frontmost app. The burst skips already-hidden apps, so it's cheap
+and stops doing work as soon as the screen settles. This eliminates the lag/flicker where
 other windows momentarily peek through.
+
+The burst keys off the app from the activation event and **never hides whatever app is
+currently frontmost**. This matters: hiding the frontmost app makes macOS auto-activate
+the next app in the window stack, which would let the burst "walk" onto an unrelated app
+(e.g. a hidden app getting yanked to the front when you only clicked another). Pinning to
+the activated app and skipping the live frontmost makes that cascade impossible.
 
 The `.accessory` policy matters: a fully `.prohibited` process can receive the
 notifications but lacks the window-server connection needed to hide other apps, so
